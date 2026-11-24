@@ -16,7 +16,7 @@ resource "ovh_cloud_storage_object_bucket" "scrolls" {
   tags = local.tags
 }
 
-resource "ovh_cloud_project_storage_object_bucket_lifecycle_configuration" "scrolls" {
+resource "ovh_cloud_project_storage_object_bucket_lifecycle_configuration" "scrolls_rules" {
   service_name   = var.service_name
   region_name    = var.storage_region
   container_name = ovh_cloud_storage_object_bucket.scrolls.name
@@ -38,4 +38,15 @@ resource "ovh_cloud_project_storage_object_bucket_lifecycle_configuration" "scro
       }
     },
   ]
+}
+
+# Seal 1: the lifecycle rules vanished when the sabotaged bucket was replaced,
+# but the state still listed them, so Terraform did not see the drift.
+# Forget the stale entry and recreate the rules under a new address.
+removed {
+  from = ovh_cloud_project_storage_object_bucket_lifecycle_configuration.scrolls
+
+  lifecycle {
+    destroy = false
+  }
 }

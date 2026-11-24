@@ -1,70 +1,37 @@
-# Access of the metrics-collector account.
+# Access of the metrics collector (monitoring.yaml), and nothing more.
+# Its loop only runs:
+#   kubectl get nodes                 -> nodes: list
+#   kubectl get pods --all-namespaces -> pods: list
+#   kubectl get --raw /metrics        -> nonResourceURL /metrics: get
+# Before: bound to cluster-admin, plus an aggregated role that could read
+# every Secret and write every ConfigMap. No aggregation any more: an
+# aggregated role grows whenever someone adds a ClusterRole with its label.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: monitoring-collector-reader
+  name: metrics-scraper-reader
   labels:
-    app.kubernetes.io/part-of: monitoring
-    {{- include "km.labels" . | nindent 4 }}
-aggregationRule:
-  clusterRoleSelectors:
-    - matchLabels:
-        rbac.achrona.io/aggregate-to-collector: "true"
-rules: []
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: monitoring-collector-core
-  labels:
-    rbac.achrona.io/aggregate-to-collector: "true"
     app.kubernetes.io/part-of: monitoring
     {{- include "km.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
-    resources: [pods, services, endpoints, namespaces, nodes, nodes/metrics]
-    verbs: [get, list, watch]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: monitoring-collector-metrics
-  labels:
-    rbac.achrona.io/aggregate-to-collector: "true"
-    app.kubernetes.io/part-of: monitoring
-    {{- include "km.labels" . | nindent 4 }}
-rules:
-  - nonResourceURLs: [/metrics, /metrics/cadvisor]
+    resources: [nodes, pods]
+    verbs: [list]
+  - nonResourceURLs: [/metrics]
     verbs: [get]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: monitoring-collector-scrape-config
-  labels:
-    rbac.achrona.io/aggregate-to-collector: "true"
-    app.kubernetes.io/part-of: monitoring
-    {{- include "km.labels" . | nindent 4 }}
-rules:
-  - apiGroups: [""]
-    resources: [secrets]
-    verbs: [get, list, watch]
-  - apiGroups: [""]
-    resources: [configmaps]
-    verbs: [get, list, watch, create, update, patch]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: monitoring-collector-reader
+  name: metrics-scraper-reader
   labels:
     app.kubernetes.io/part-of: monitoring
     {{- include "km.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cluster-admin
+  name: metrics-scraper-reader
 subjects:
   - kind: ServiceAccount
-    name: metrics-collector
+    name: metrics-scraper
     namespace: {{ .Release.Namespace }}

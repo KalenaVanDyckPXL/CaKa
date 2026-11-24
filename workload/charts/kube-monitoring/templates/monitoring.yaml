@@ -21,7 +21,7 @@ spec:
         app.kubernetes.io/part-of: monitoring
         {{- include "km.labels" . | nindent 8 }}
     spec:
-      serviceAccountName: metrics-collector
+      serviceAccountName: metrics-scraper
       securityContext:
         runAsNonRoot: true
         runAsUser: 65534

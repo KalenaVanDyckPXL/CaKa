@@ -25,3 +25,5 @@ jq.exe
 *.tfplan
 kubeconfig
 jq.exe
+
+old-token.txt

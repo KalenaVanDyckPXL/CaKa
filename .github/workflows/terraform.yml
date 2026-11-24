@@ -1,7 +1,10 @@
 # Seal 1: Git is the single source of truth.
 # - Pull request: fmt, validate and plan for core/ and workload/
 # - Push to main: apply (core first, then workload)
-# - Every hour: drift detection (plan -detailed-exitcode fails on drift)
+# - Every hour: drift detection with auto-remediation
+#     * no drift                      -> green
+#     * drift, only in-place changes  -> applied automatically (warning in the log)
+#     * drift that needs a destroy    -> red, waits for a human (never auto-destroy)
 #
 # Repo secrets needed (Settings > Secrets and variables > Actions):
 #   OVH_ENDPOINT, OVH_CLIENT_ID, OVH_CLIENT_SECRET,
@@ -16,7 +19,7 @@ on:
     - cron: "0 * * * *"
   workflow_dispatch:
 
-# No state locking in the backend: never run two applies at once.
+# No state locking in the backend: never run two plans/applies at once.
 concurrency:
   group: terraform-state
   cancel-in-progress: false
@@ -33,6 +36,7 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       max-parallel: 1 # core before workload
       matrix:
         dir: [core, workload]
@@ -55,7 +59,7 @@ jobs:
       - name: Validate
         run: terraform validate
 
-      - name: Plan (fails with exit code 2 on drift during the hourly check)
+      - name: Plan
         id: plan
         run: |
           set +e
@@ -63,12 +67,32 @@ jobs:
           code=$?
           echo "exitcode=$code" >> "$GITHUB_OUTPUT"
           if [ "$code" = "1" ]; then exit 1; fi
+
+          deletes=0
+          if [ "$code" = "2" ]; then
+            terraform show -json tfplan > plan.json
+            deletes=$(jq '[.resource_changes[]? | select(.change.actions | index("delete"))] | length' plan.json)
+            echo "Planned changes in ${{ matrix.dir }}:"
+            jq -r '.resource_changes[]? | select(.change.actions != ["no-op"]) | "  \(.change.actions | join("/"))  \(.address)"' plan.json
+          fi
+          echo "deletes=$deletes" >> "$GITHUB_OUTPUT"
+
           if [ "$code" = "2" ] && [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "::error::Drift detected in ${{ matrix.dir }}: the realm no longer matches Git"
-            exit 1
+            echo "::warning::Drift detected in ${{ matrix.dir }}: the realm no longer matches Git"
+            if [ "$deletes" != "0" ]; then
+              echo "::error::Drift in ${{ matrix.dir }} needs $deletes destroy/replace action(s): human review required, not auto-remediated"
+              exit 1
+            fi
+            echo "Only in-place changes: auto-remediating."
           fi
           exit 0
 
+      # Apply on merge to main, and auto-remediate safe drift on the hourly run.
+      # Destroys are never applied by the schedule: those wait for a human.
       - name: Apply
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.plan.outputs.exitcode == '2'
+        if: >-
+          steps.plan.outputs.exitcode == '2' && (
+            (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+            (github.event_name == 'schedule' && steps.plan.outputs.deletes == '0')
+          )
         run: terraform apply -input=false tfplan

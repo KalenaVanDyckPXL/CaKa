@@ -14,6 +14,14 @@ resource "ovh_cloud_storage_object_bucket" "scrolls" {
   }
 
   tags = local.tags
+
+  lifecycle {
+    # The bucket was recreated by hand with an empty object_lock block. It is
+    # empty and harmless, but a difference in it forces a replacement. Ignore
+    # it so encryption and versioning are fixed in place, without deleting
+    # the bucket.
+    ignore_changes = [object_lock]
+  }
 }
 
 resource "ovh_cloud_project_storage_object_bucket_lifecycle_configuration" "scrolls" {

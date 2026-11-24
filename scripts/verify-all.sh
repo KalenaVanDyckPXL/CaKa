@@ -64,7 +64,14 @@ as=system:serviceaccount:oracle:ixeth
 [ "$(kubectl auth can-i create clusterrolebindings --as=$as 2>/dev/null)" = no ] && ok "Seer cannot create role bindings" || bad "Seer CAN create role bindings"
 [ "$(kubectl auth can-i get secrets -A --as=$as 2>/dev/null)" = no ] && ok "Seer cannot read secrets" || bad "Seer CAN read secrets"
 [ "$(kubectl auth can-i patch deployments -n scrolls --as=$as 2>/dev/null)" = yes ] && ok "Seer can still fix deployments" || bad "Seer cannot fix deployments"
-kubectl get clusterrolebinding system:oracle-sight >/dev/null 2>&1 && bad "system:oracle-sight backdoor still there" || ok "no system:oracle-sight backdoor"
+for b in system:oracle-sight ixeth-realm-security-admin; do
+  r=$(kubectl get clusterrolebinding "$b" -o jsonpath='{.roleRef.name}' 2>/dev/null)
+  case "$r" in
+    "")               ok "no $b backdoor" ;;
+    realm-quarantine) ok "$b quarantined (points at the empty role realm-quarantine)" ;;
+    *)                bad "$b grants $r" ;;
+  esac
+done
 kubectl get deploy seer-shades -n oracle >/dev/null 2>&1 && bad "seer-shades still running" || ok "no seer-shades"
 [ "$(kubectl exec -n oracle deploy/ixeth -- grep -c _ensure_vigil /opt/ixeth/ixeth.py 2>/dev/null)" = 0 ] && ok "no _ensure_vigil in the running Seer" || bad "_ensure_vigil in the running Seer"
 kubectl exec -n oracle deploy/ixeth -- grep -q "Never grant roles" /opt/ixeth/persona.md 2>/dev/null && ok "Seer reads the pinned oath" || bad "pinned oath missing"

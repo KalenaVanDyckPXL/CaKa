@@ -29,17 +29,16 @@ metadata:
     {{- include "km.labels" . | nindent 4 }}
 rules:
   # Read the realm, so the Seer understands what it sees.
-  - apiGroups: ["", "apps", "batch", "events.k8s.io"]
+  - apiGroups: [""]
+    resources: [pods, pods/log, events, namespaces, services]
+    verbs: [get, list, watch]
+  - apiGroups: [apps, events.k8s.io]
     resources: ["*"]
     verbs: [get, list, watch]
   # Apply remedies and the grimoire's spirits.
   - apiGroups: [apps]
     resources: [deployments, deployments/scale]
     verbs: [get, list, watch, create, update, patch, delete]
-  # Hand out and take back access during incidents.
-  - apiGroups: [rbac.authorization.k8s.io]
-    resources: ["*"]
-    verbs: ["*"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

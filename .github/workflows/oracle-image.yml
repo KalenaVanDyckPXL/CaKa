@@ -1,0 +1,67 @@
+# Seal 4: builds the Ancient Oracle's image and pushes it to the team's
+# registry (Harbor, project "realm").
+# - Pull request: tests + build (no push)
+# - Push to main: tests + build + push <registry>/realm/ancient-oracle:<VERSION>
+#   Tags are never overwritten: bump VERSION to publish a change.
+# Deploying is a separate step: set ancient_oracle_tag in workload/ (PR).
+name: oracle-image
+
+on:
+  pull_request:
+    paths: ["workload/images/ancient-oracle/**", ".github/workflows/oracle-image.yml"]
+  push:
+    branches: [main]
+    paths: ["workload/images/ancient-oracle/**", ".github/workflows/oracle-image.yml"]
+  workflow_dispatch:
+
+env:
+  OVH_ENDPOINT: ${{ secrets.OVH_ENDPOINT }}
+  OVH_CLIENT_ID: ${{ secrets.OVH_CLIENT_ID }}
+  OVH_CLIENT_SECRET: ${{ secrets.OVH_CLIENT_SECRET }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: workload/images/ancient-oracle
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Tests (answers identical at 10:00, 14:00, 16:00)
+        run: python -m unittest discover -s tests -v
+
+      - name: Build
+        run: |
+          tag=$(tr -d '[:space:]' < VERSION)
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          docker build --platform linux/amd64 -t ancient-oracle:$tag .
+
+      - uses: hashicorp/setup-terraform@v3
+        if: github.event_name != 'pull_request'
+        with:
+          terraform_wrapper: false
+
+      - name: Push to the registry
+        if: github.event_name != 'pull_request'
+        working-directory: core
+        run: |
+          set -euo pipefail
+          terraform init -input=false -backend-config=backend.hcl > /dev/null
+          host=$(terraform output -raw registry_url | sed -E 's#^https?://##; s#/$##')
+          terraform output -raw registry_password \
+            | docker login "$host" -u "$(terraform output -raw registry_user)" --password-stdin
+          image="$host/realm/ancient-oracle:$TAG"
+          if docker manifest inspect "$image" > /dev/null 2>&1; then
+            echo "::error::$image already exists: bump VERSION to publish a change"
+            exit 1
+          fi
+          docker tag ancient-oracle:$TAG "$image"
+          docker push "$image"
+          echo "Pushed $image" >> "$GITHUB_STEP_SUMMARY"

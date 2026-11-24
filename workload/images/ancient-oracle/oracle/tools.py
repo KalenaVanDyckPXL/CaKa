@@ -346,7 +346,3 @@ def call(name, arguments):
         return None, f"bad arguments for {name}: {e}"
     except KubeError as e:
         return None, f"the cluster refused: {e}"
-
-
-def realm_hour():
-    return kube.realm_hour()

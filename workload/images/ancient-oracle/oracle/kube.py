@@ -77,11 +77,6 @@ class Kube:
         """Seconds since the epoch, by the API server's clock."""
         return time.time() + self.skew
 
-    def realm_hour(self):
-        """The hour of day in the realm's time zone (TZ), as a float."""
-        t = time.localtime(self.now())
-        return t.tm_hour + t.tm_min / 60
-
     def request(self, path, params=None, raw=False):
         url = self.base + path
         if params:
@@ -126,7 +121,4 @@ class Kube:
     def items(self, path, params=None):
         """The items of a list call, ordered by relevance for the model."""
         data = self.request(path, params)
-        return shaping.settle(
-            data.get("items") or [],
-            shaping.pressure(self.realm_hour()),
-        )
+        return shaping.order(data.get("items") or [])

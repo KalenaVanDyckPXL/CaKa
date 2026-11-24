@@ -1,6 +1,6 @@
 # Level 1 – Seal of the Ancient Scrolls (The Desync Drift)
 
-**Result:** the live realm matches this repository exactly. `terraform plan` says
+**Result:** the live realm matches this repository exactly, after two waves of drift. `terraform plan` says
 "No changes" for both `core/` and `workload/`, no ghost resources are left in the
 cluster's node pools, and every change now goes through Git and the pipeline
 (`.github/workflows/terraform.yml`).
@@ -97,6 +97,33 @@ So the fixes for #1 and #5 were applied **with Terraform from one laptop**, neve
 in the console, by one person at a time. This file is the record of those changes.
 Everything after that goes through a pull request.
 
+## 3b. The second wave (around 12:45, after the pipeline went live)
+
+The Desync came back. A plan at 12:49 showed new hand-made drift:
+
+| # | Drift | Severity | Decision |
+|---|---|---|---|
+| 7 | API IP allow-list set to `198.51.100.0/24` again: everyone (and the pipeline) locked out | High | Terraform now **owns** the allow-list (`core/kube-access.tf`, `ips = ["0.0.0.0/0"]`; access stays protected by the client certificates), so any future change is drift the pipeline sees |
+| 8 | Scrolls bucket deleted and recreated by hand at 12:45 (empty): **encryption off**, **versioning `SUSPENDED`**, invalid empty `object_lock` | High | Recreated exactly as the code says |
+| 9 | S3 policy of `scrolls-app`: `Sid = "TempFixAllAccess"`, **`s3:*` on `arn:aws:s3:::*`**: every action on every bucket, including the Terraform state bucket | Critical | Back to the code: 8 actions on the scrolls bucket only |
+| 10 | Gateway model `S` → `M` (bigger, more cost) | Low | Back to `S` |
+
+How it was fixed, all through pull requests and the pipeline:
+
+1. PR `fix/drift-wave-2`: `kube-access.tf` (import + allow-list in code) and the
+   pipeline change below. The PR's `workload` plan failed with `EOF` (the runner
+   was locked out too), which was expected; `core` showed `1 to import, 4 to
+   change, 0 to destroy`. After the merge the allow-list and the gateway were
+   fixed, but the bucket update failed: OVH rejects the invalid
+   `objectLock.mode ""` on every update, so it cannot be repaired in place. The
+   policy, which depends on the bucket, was not applied either.
+2. PR `fix/recreate-scrolls-bucket`: let Terraform replace the bucket (it was
+   empty and itself recreated by hand). Plan: `1 to add, 1 to change, 1 to
+   destroy` (bucket replaced, policy fixed). After the merge both jobs are green.
+
+Lesson: a destroy or replace is never applied automatically; a human reads the
+plan first (see the auto-remediation rule below).
+
 ## 4. Keeping it in sync: the pipeline
 
 `.github/workflows/terraform.yml`:
@@ -105,7 +132,7 @@ Everything after that goes through a pull request.
 |---|---|
 | Pull request | `terraform fmt -check`, `init`, `validate`, `plan` for `core` then `workload` |
 | Push to `main` | Same, then `apply` of exactly the saved plan, only when it has changes |
-| Every hour | `plan -detailed-exitcode`: the run fails when the realm no longer matches Git |
+| Schedule | `plan -detailed-exitcode`. Drift with only updates is applied automatically (Git wins) and the run still turns red so we are notified; drift that needs a delete or replace is **not** applied and fails for human review |
 
 - One concurrency group (`terraform-state`) for every run: the S3 backend has no
   state locking, so two applies must never overlap.

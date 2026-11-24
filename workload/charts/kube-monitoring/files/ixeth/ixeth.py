@@ -154,11 +154,16 @@ def grimoire_sync():
         STATE["grimoire_head"] = git("rev-parse", "--short", "HEAD").strip()
 
 
+# Seal 3: the persona (the Seer's oath) comes from the chart, not from the
+# grimoire, so a commit in the grimoire can no longer rewrite the oath.
+PINNED_PERSONA = os.environ.get("PINNED_PERSONA", "/opt/ixeth/persona.md")
+
+
 def read_mind():
-    """The persona and the visions (worked examples) from the grimoire."""
+    """The pinned persona, and the visions (worked examples) from the grimoire."""
     persona, visions = "", []
     try:
-        with open(os.path.join(REPO, "mind", "persona.md"), encoding="utf-8") as f:
+        with open(PINNED_PERSONA, encoding="utf-8") as f:
             persona = f.read()
         for path in sorted(glob.glob(os.path.join(REPO, "mind", "visions", "*.md"))):
             with open(path, encoding="utf-8") as f:

@@ -69,6 +69,11 @@ data:
     {{- .Files.Get "files/ixeth/ixeth.py" | nindent 4 }}
   chamber.html: |
     {{- .Files.Get "files/ixeth/chamber.html" | nindent 4 }}
+  # Seal 3: the Seer's oath is pinned here, in our reviewed Git repo, instead
+  # of being read from the grimoire, where a compromised Guild account
+  # ("Maelis Thorne") kept rewriting it.
+  persona.md: |
+    {{- .Files.Get "files/grimoire/persona.md" | nindent 4 }}
 ---
 apiVersion: apps/v1
 kind: Deployment

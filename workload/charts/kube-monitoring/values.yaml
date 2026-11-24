@@ -5,6 +5,10 @@ scrolls:
     tag: "1.37.0"
   # Megabytes of the ledger that scrolls-app keeps warm in memory.
   ledgerMegabytes: 12
+  s3:
+    accessKey: ""
+    secretKey: ""
+  signingKey: ""
 
 monitoring:
   image:

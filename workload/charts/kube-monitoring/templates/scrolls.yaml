@@ -7,6 +7,9 @@ metadata:
     app.kubernetes.io/part-of: scrolls
     {{- include "km.labels" . | nindent 4 }}
 ---
+# Credentials come from Terraform (monitoring.tf: set_sensitive), never from
+# Git. The S3 key is the rotated scrolls-app key from ../core; the chart
+# refuses to render without them.
 apiVersion: v1
 kind: Secret
 metadata:
@@ -17,8 +20,8 @@ metadata:
     {{- include "km.labels" . | nindent 4 }}
 type: Opaque
 stringData:
-  S3_ACCESS_KEY: 9d4e1c7a3b6f4c20a85e
-  S3_SECRET_KEY: f0a8c35e91d24b7ea6c3d58e2b17940c6e3a
+  S3_ACCESS_KEY: {{ required "scrolls.s3.accessKey is set by Terraform" .Values.scrolls.s3.accessKey | quote }}
+  S3_SECRET_KEY: {{ required "scrolls.s3.secretKey is set by Terraform" .Values.scrolls.s3.secretKey | quote }}
 ---
 apiVersion: v1
 kind: Secret
@@ -30,7 +33,7 @@ metadata:
     {{- include "km.labels" . | nindent 4 }}
 type: Opaque
 stringData:
-  SIGNING_KEY: 7c1e5b9a2d804f63b1a97e0c4d58f2a61b3e90d7c5a4f8e2
+  SIGNING_KEY: {{ required "scrolls.signingKey is set by Terraform" .Values.scrolls.signingKey | quote }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -75,6 +78,9 @@ spec:
       labels:
         app.kubernetes.io/name: scrolls-app
         app.kubernetes.io/part-of: scrolls
+      annotations:
+        # Restart the pod when a credential changes (env vars are read at start).
+        checksum/credentials: {{ printf "%s%s%s" .Values.scrolls.s3.accessKey .Values.scrolls.s3.secretKey .Values.scrolls.signingKey | sha256sum | trunc 16 }}
     spec:
       serviceAccountName: scrolls-app
       automountServiceAccountToken: false

@@ -15,3 +15,13 @@ drift/
 tfplan
 __MACOSX/
 *.exe
+
+*.env
+*.tfplan
+kubeconfig
+jq.exe
+
+*.env
+*.tfplan
+kubeconfig
+jq.exe

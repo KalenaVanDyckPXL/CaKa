@@ -1,0 +1,58 @@
+random_password.ingress: Refreshing state... [id=none]
+data.terraform_remote_state.core: Reading...
+data.terraform_remote_state.core: Read complete after 0s
+data.ovh_cloud_project_kube.this: Reading...
+data.ovh_cloud_project_kube.this: Read complete after 2s [id=2f9c280f-b61f-47ba-9630-c238f3785108]
+kubernetes_namespace_v1.ingress: Refreshing state... [id=traefik]
+kubernetes_namespace_v1.ancient: Refreshing state... [id=ancient]
+helm_release.monitoring: Refreshing state... [id=kube-monitoring]
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform planned the following actions, but then encountered a problem:
+
+  # helm_release.monitoring will be created
+  + resource "helm_release" "monitoring" {
+      + atomic                     = false
+      + chart                      = "./charts/kube-monitoring"
+      + cleanup_on_fail            = false
+      + create_namespace           = true
+      + dependency_update          = false
+      + disable_crd_hooks          = false
+      + disable_openapi_validation = false
+      + disable_webhooks           = false
+      + force_update               = false
+      + id                         = (known after apply)
+      + lint                       = false
+      + max_history                = 0
+      + metadata                   = (known after apply)
+      + name                       = "kube-monitoring"
+      + namespace                  = "observability"
+      + pass_credentials           = false
+      + recreate_pods              = false
+      + render_subchart_notes      = true
+      + replace                    = false
+      + reset_values               = false
+      + reuse_values               = false
+      + set                        = [
+          + {
+              + name  = "ingress.domain"
+              + value = "achrona.test"
+                # (1 unchanged attribute hidden)
+            },
+        ]
+      + set_wo                     = (write-only attribute)
+      + skip_crds                  = false
+      + status                     = "deployed"
+      + take_ownership             = false
+      + timeout                    = 600
+      + upgrade_install            = false
+      + verify                     = false
+      + version                    = "0.4.1"
+      + wait                       = true
+      + wait_for_jobs              = false
+    }
+
+Plan: 1 to add, 0 to change, 0 to destroy.

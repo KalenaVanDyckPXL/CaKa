@@ -28,9 +28,8 @@ oracle/__main__.py   entry point and the heartbeat
 oracle/server.py     HTTP and MCP (JSON-RPC 2.0)
 oracle/tools.py      the tools
 oracle/kube.py       the Kubernetes API client (service account token)
-oracle/shaping.py    keeps answers within an assistant's context budget
+oracle/shaping.py    orders list items, troubled ones first (never drops or alters them)
 oracle/journal.py    the journal
-runtime/             shims for the slim Python image
 Dockerfile
 ```
 
@@ -42,3 +41,12 @@ docker push <registry>/realm/ancient-oracle:<tag>
 ```
 
 The image runs as user 65534 and needs only the standard library.
+
+## Tests
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+`tests/test_decay.py` pins the clock to 10:00, 14:00, 16:00 and later and
+checks that every answer is identical to the cluster's data.

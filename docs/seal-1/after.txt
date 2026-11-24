@@ -1,0 +1,18 @@
+di 24 nov 2026 13:14:26 CET
+== bucket
+{"encryption":{"sseAlgorithm":"AES256"},"versioning":{"status":"enabled"},"rules":[]}
+== policy
+{"Statement":[{"Action":["s3:GetObject","s3:PutObject","s3:DeleteObject","s3:ListBucket","s3:GetBucketLocation","s3:ListMultipartUploadParts","s3:ListBucketMultipartUploads","s3:AbortMultipartUpload"],"Effect":"Allow","Resource":["arn:aws:s3:::achrona-f9b3c6ad-scrolls","arn:aws:s3:::achrona-f9b3c6ad-scrolls/*"],"Sid":"ScrollsReadWrite"}]}
+== iprestrictions
+["0.0.0.0/0"]
+== nodepools
+achrona-pool
+hotfix-pool
+== instances
+hotfix-pool-node-12f2d3
+achrona-pool-node-9d2be8
+achrona-pool-node-6b042d
+== users
+achrona-tfstate  objectstore_operator
+achrona-scrolls-app  objectstore_operator
+debug-admin  administrator

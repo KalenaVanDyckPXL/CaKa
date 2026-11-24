@@ -1,0 +1,7 @@
+di 24 nov 2026 12:09:11 CET
+== nodepools
+achrona-pool
+== users
+achrona-tfstate  objectstore_operator
+achrona-scrolls-app  objectstore_operator
+debug-admin  administrator

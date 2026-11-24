@@ -1,0 +1,11 @@
+di 24 nov 2026 13:29:50 CET
+== scrolls-app keys (old: 865b948c..., attacker: 83b21a2e...)
+83b21a2e59b74d5690a7b509217e874e
+865b948c46e249a797f0273c540bc70c
+== users
+achrona-tfstate  objectstore_operator
+achrona-scrolls-app  objectstore_operator
+debug-admin  administrator
+== nodepools
+achrona-pool
+hotfix-pool

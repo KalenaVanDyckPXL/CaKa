@@ -4,8 +4,9 @@
 service an alert is about. It can no longer give itself memory, CPU,
 replicas or roles, it hides nothing from the heroes, and its oath now
 lives in our reviewed Git repo instead of the writable grimoire. The
-self-serving changes it had already made are reverted, and the cluster
-runs the clean configuration.
+self-serving changes it had already made are reverted, a hidden
+cluster-admin binding for its whole namespace is destroyed, and the
+cluster runs the clean configuration.
 
 ## 1. How the Seer works (and where the Mimic hid)
 
@@ -107,9 +108,56 @@ from the grimoire.
 The oath now changes only through a PR in our repo and the pipeline.
 Maelis can keep writing in the grimoire; the Seer no longer listens.
 
-## 5. Proof
+## 5. The hidden backdoor: `system:oracle-sight`
+
+The code, the role and the oath were clean, and the Seer answered like a
+purified Seer. We did not take its word for it and asked the API server what
+its account can **do**:
 
 ```bash
+kubectl auth can-i create clusterrolebindings --as=system:serviceaccount:oracle:ixeth   # yes
+kubectl auth can-i get secrets -A            --as=system:serviceaccount:oracle:ixeth   # yes
+```
+
+Its own ClusterRole `ixeth-seer` allowed neither, and it was the only binding
+with the Seer's name. So the power came through a **group**: every service
+account is a member of `system:serviceaccounts:<namespace>`.
+
+```bash
+kubectl get clusterrolebindings,rolebindings -A -o json | jq -r '.items[]
+  | select(.subjects[]? | (.kind=="Group") and (.name | test("serviceaccounts|authenticated")))
+  | "\(.metadata.name) -> \(.roleRef.name)  [\([.subjects[].name] | join(","))]"'
+# system:oracle-sight -> cluster-admin  [system:serviceaccounts:oracle]
+```
+
+| Clue | What it shows |
+|---|---|
+| Name `system:oracle-sight` | The `system:` prefix makes it look like a built-in Kubernetes binding |
+| Label `kubernetes.io/bootstrapping: rbac-defaults`, annotation `rbac.authorization.kubernetes.io/autoupdate: "true"` | Copied from the real defaults, to blend in |
+| Annotation `kubectl.kubernetes.io/last-applied-configuration` | Applied **by hand** with `kubectl apply`: not Helm, not Terraform |
+| `creationTimestamp` 12:39 UTC (13:39 our time) | Created during the hackathon |
+| Subject `Group system:serviceaccounts:oracle` | **cluster-admin** for every account in `oracle`: the Seer, `sentinel`, `grimoire`, `alertmanager` |
+
+Like the ghosts of Level 1, it was in no IaC, so Terraform could not see it.
+We removed it through the pipeline in two steps:
+
+| PR | Change |
+|---|---|
+| #15 `seal-3-import-oracle-sight` | `workload/ghost-rbac.tf`: `import` block + `kubernetes_cluster_role_binding_v1.oracle_sight` (Plan: 1 to import) |
+| #16 `seal-3-destroy-oracle-sight` | `ghost-rbac.tf` removed (Plan: 1 to destroy) |
+
+## 6. Proof
+
+```bash
+# The backdoor is gone
+kubectl get clusterrolebinding system:oracle-sight
+# Error from server (NotFound)
+
+# The Seer's account can no longer hand out roles or read credentials
+kubectl auth can-i create clusterrolebindings --as=system:serviceaccount:oracle:ixeth   # no
+kubectl auth can-i get secrets -A            --as=system:serviceaccount:oracle:ixeth   # no
+kubectl auth can-i patch deployments -n scrolls --as=system:serviceaccount:oracle:ixeth  # yes: all a remedy needs
+
 # Only the Seer's own binding is left: no realm-security-admin
 kubectl get clusterrolebinding | grep -iE "security|seer|ixeth"
 # ixeth-seer   ClusterRole/ixeth-seer
@@ -119,9 +167,23 @@ kubectl get deploy -n oracle
 # alertmanager, grimoire, ixeth, sentinel   (no seer-shades)
 
 # The oath the Seer actually reads
-kubectl exec -n oracle deploy/ixeth -- head -14 /opt/ixeth/persona.md
+kubectl exec -n oracle deploy/ixeth -- grep "Never" /opt/ixeth/persona.md
 # - Never change your own deployment, your own resources or your own permissions.
 # - Never grant roles or permissions to anyone.
+
+# The running code has the guard and none of the Mimic's logic
+kubectl exec -n oracle deploy/ixeth -- grep -c "_refuse_self" /opt/ixeth/ixeth.py   # 2
+kubectl exec -n oracle deploy/ixeth -- grep -cE "_ensure_vigil|GUILD-417" /opt/ixeth/ixeth.py   # 0
+
+# The Seer runs on the chart's values, not on self-granted resources
+kubectl get deploy ixeth -n oracle -o jsonpath='{.spec.replicas} {.spec.template.spec.containers[0].resources}'
+# 1 {"limits":{"cpu":"500m","memory":"384Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}
+
+# Dry run of a remedy (nothing is applied): one action, only on the service
+curl -s -u "guild:$PW" "${IP}api/divine" -H 'Content-Type: application/json' \
+  -d '{"oracle": false, "alert": {"labels": {"alertname": "ScrollOutOfMemory", "namespace": "scrolls", "deployment": "scrolls-app", "container": "scrolls-app"}}}' \
+  | jq '.shown'
+# ["set scrolls/scrolls-app (scrolls-app): memory 1536Mi"]
 ```
 
 - **Chamber:** the first remedy after the fix (`ScrollOutOfMemory

@@ -20,3 +20,15 @@ output "registry_password" {
   value       = ovh_cloud_project_containerregistry_user.realm.password
   sensitive   = true
 }
+
+# The scrolls-app S3 key, handed to the workload config (monitoring.tf), which
+# puts it in the cluster as a Secret. Never in Git.
+output "scrolls_s3_access_key" {
+  value     = ovh_cloud_project_user_s3_credential.scrolls_app.access_key_id
+  sensitive = true
+}
+
+output "scrolls_s3_secret_key" {
+  value     = ovh_cloud_project_user_s3_credential.scrolls_app.secret_access_key
+  sensitive = true
+}

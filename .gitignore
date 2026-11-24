@@ -27,3 +27,5 @@ kubeconfig
 jq.exe
 
 old-token.txt
+
+empty-kubeconfig.yaml
